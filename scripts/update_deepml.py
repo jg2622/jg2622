@@ -11,27 +11,66 @@ PROFILE_URL = "https://www.deep-ml.com/profile/X82iZV216RUSAObiUGdusCXLMR42"
 OUTPUT_PATH = Path("assets/deepml-stats.svg")
 LOGO_PATH = Path("assets/deepml-logo.png")
 
-
 def get_deepml_stats():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
 
         page = browser.new_page(
-            viewport={"width": 1400, "height": 1200}
+            viewport={"width": 1400, "height": 1200},
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/127.0.0.0 Safari/537.36"
+            ),
         )
 
-        page.goto(
-            PROFILE_URL,
-            wait_until="domcontentloaded",
-            timeout=60000,
-        )
+        max_attempts = 3
+        body_text = None
 
-        # 给 Deep-ML 的 JavaScript 一点时间加载统计数据
-        page.wait_for_timeout(7000)
+        for attempt in range(1, max_attempts + 1):
+            print(f"Attempt {attempt}/{max_attempts}...")
 
-        body_text = page.locator("body").inner_text()
+            try:
+                page.goto(
+                    PROFILE_URL,
+                    wait_until="domcontentloaded",
+                    timeout=60000,
+                )
+
+                # 最多等 30 秒，直到 Easy 真正出现在页面
+                page.locator("text=Easy").first.wait_for(
+                    state="visible",
+                    timeout=30000,
+                )
+
+                body_text = page.locator("body").inner_text()
+
+                # 再确认一次统计区域真的加载出来了
+                if (
+                    "Easy" in body_text
+                    and "Medium" in body_text
+                    and "Hard" in body_text
+                ):
+                    print("Deep-ML stats loaded successfully.")
+                    break
+
+            except Exception as e:
+                print(f"Attempt {attempt} failed: {e}")
+
+            if attempt < max_attempts:
+                print("Retrying...")
+                page.wait_for_timeout(5000)
+                page.reload(
+                    wait_until="domcontentloaded",
+                    timeout=60000,
+                )
 
         browser.close()
+
+    if body_text is None:
+        raise RuntimeError(
+            "Deep-ML page could not be loaded after multiple attempts."
+        )
 
     lines = [
         line.strip()
@@ -39,7 +78,6 @@ def get_deepml_stats():
         if line.strip()
     ]
 
-    # 找到 "BY DIFFICULTY" / "By difficulty" 区域
     difficulty_start = 0
 
     for i, line in enumerate(lines):
@@ -60,9 +98,8 @@ def get_deepml_stats():
                 f"Could not find {label} in Deep-ML page."
             )
 
-        # label 后面第一个纯数字就是做题数
-        for line in lines[label_index + 1 : label_index + 8]:
-            cleaned = line.replace(",", "")
+        for line in lines[label_index + 1 : label_index + 10]:
+            cleaned = line.replace(",", "").strip()
 
             if re.fullmatch(r"\d+", cleaned):
                 return int(cleaned)
@@ -75,8 +112,12 @@ def get_deepml_stats():
     medium = find_count("Medium")
     hard = find_count("Hard")
 
-    return easy, medium, hard
+    print(
+        f"Found stats: Easy={easy}, "
+        f"Medium={medium}, Hard={hard}"
+    )
 
+    return easy, medium, hard
 
 def encode_logo():
     if not LOGO_PATH.exists():
