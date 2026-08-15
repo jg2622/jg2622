@@ -6,17 +6,44 @@ from pathlib import Path
 from playwright.sync_api import sync_playwright
 
 
-PROFILE_URL = "https://www.deep-ml.com/profile/X82iZV216RUSAObiUGdusCXLMR42"
+# ============================================================
+# Configuration
+# ============================================================
+
+PROFILE_URL = (
+    "https://www.deep-ml.com/profile/"
+    "X82iZV216RUSAObiUGdusCXLMR42"
+)
 
 OUTPUT_PATH = Path("assets/deepml-stats.svg")
 LOGO_PATH = Path("assets/deepml-logo.png")
 
+
+# ============================================================
+# Fetch Deep-ML stats
+# ============================================================
+
 def get_deepml_stats():
+    """
+    Open the Deep-ML profile with Playwright and extract
+    Easy / Medium / Hard solved counts.
+
+    Deep-ML currently exposes the difficulty statistics inside
+    SVG <title> elements, for example:
+
+        Easy · 4 · 80%
+        Medium · 1 · 20%
+        Hard · 0 · 0%
+    """
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
 
         page = browser.new_page(
-            viewport={"width": 1400, "height": 1200},
+            viewport={
+                "width": 1400,
+                "height": 1200,
+            },
             user_agent=(
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                 "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -25,196 +52,368 @@ def get_deepml_stats():
         )
 
         max_attempts = 3
-        body_text = None
 
-        for attempt in range(1, max_attempts + 1):
-            print(f"Attempt {attempt}/{max_attempts}...")
-
-            try:
-                page.goto(
-                    PROFILE_URL,
-                    wait_until="domcontentloaded",
-                    timeout=60000,
+        try:
+            for attempt in range(1, max_attempts + 1):
+                print(
+                    f"Attempt {attempt}/{max_attempts} "
+                    "to load Deep-ML stats..."
                 )
 
-                # 最多等 30 秒，直到 Easy 真正出现在页面
-                page.locator("text=Easy").first.wait_for(
-                    state="visible",
-                    timeout=30000,
-                )
+                try:
+                    page.goto(
+                        PROFILE_URL,
+                        wait_until="domcontentloaded",
+                        timeout=60000,
+                    )
 
-                body_text = page.locator("body").inner_text()
+                    # Wait until Deep-ML has rendered all three
+                    # difficulty statistics into SVG <title> tags.
+                    #
+                    # IMPORTANT:
+                    # We do NOT wait for text=Easy to become visible,
+                    # because these <title> elements are intentionally
+                    # hidden SVG metadata.
+                    page.wait_for_function(
+                        r"""
+                        () => {
+                            const titles = Array
+                                .from(document.querySelectorAll("title"))
+                                .map(el =>
+                                    (el.textContent || "").trim()
+                                );
 
-                # 再确认一次统计区域真的加载出来了
-                if (
-                    "Easy" in body_text
-                    and "Medium" in body_text
-                    and "Hard" in body_text
-                ):
-                    print("Deep-ML stats loaded successfully.")
-                    break
+                            const hasEasy = titles.some(
+                                text =>
+                                    /^Easy\s*[·•]\s*\d+/.test(text)
+                            );
 
-            except Exception as e:
-                print(f"Attempt {attempt} failed: {e}")
+                            const hasMedium = titles.some(
+                                text =>
+                                    /^Medium\s*[·•]\s*\d+/.test(text)
+                            );
 
-            if attempt < max_attempts:
-                print("Retrying...")
-                page.wait_for_timeout(5000)
-                page.reload(
-                    wait_until="domcontentloaded",
-                    timeout=60000,
-                )
+                            const hasHard = titles.some(
+                                text =>
+                                    /^Hard\s*[·•]\s*\d+/.test(text)
+                            );
 
-        browser.close()
+                            return (
+                                hasEasy &&
+                                hasMedium &&
+                                hasHard
+                            );
+                        }
+                        """,
+                        timeout=30000,
+                    )
 
-    if body_text is None:
-        raise RuntimeError(
-            "Deep-ML page could not be loaded after multiple attempts."
-        )
+                    titles = page.locator(
+                        "title"
+                    ).all_text_contents()
 
-    lines = [
-        line.strip()
-        for line in body_text.splitlines()
-        if line.strip()
-    ]
+                    # Show relevant data in GitHub Actions logs.
+                    relevant_titles = [
+                        title.strip()
+                        for title in titles
+                        if title.strip().startswith(
+                            (
+                                "Easy",
+                                "Medium",
+                                "Hard",
+                            )
+                        )
+                    ]
 
-    difficulty_start = 0
+                    print("Deep-ML difficulty data found:")
 
-    for i, line in enumerate(lines):
-        if "difficulty" in line.lower():
-            difficulty_start = i
-            break
+                    for title in relevant_titles:
+                        print(f"  {title}")
 
-    def find_count(label):
-        label_index = None
+                    def extract_count(label):
+                        """
+                        Extract the solved count from strings such as:
+                        Easy · 4 · 80%
+                        """
 
-        for i in range(difficulty_start, len(lines)):
-            if lines[i].lower() == label.lower():
-                label_index = i
-                break
+                        pattern = re.compile(
+                            rf"^{re.escape(label)}"
+                            rf"\s*[·•]\s*(\d+)"
+                        )
 
-        if label_index is None:
+                        for title in titles:
+                            cleaned = title.strip()
+                            match = pattern.search(cleaned)
+
+                            if match:
+                                return int(match.group(1))
+
+                        raise RuntimeError(
+                            f"Could not extract {label} count "
+                            "from Deep-ML page."
+                        )
+
+                    easy = extract_count("Easy")
+                    medium = extract_count("Medium")
+                    hard = extract_count("Hard")
+
+                    print(
+                        "Successfully extracted Deep-ML stats:"
+                    )
+                    print(f"  Easy   = {easy}")
+                    print(f"  Medium = {medium}")
+                    print(f"  Hard   = {hard}")
+                    print(
+                        f"  Total  = "
+                        f"{easy + medium + hard}"
+                    )
+
+                    return easy, medium, hard
+
+                except Exception as error:
+                    print(
+                        f"Attempt {attempt} failed:"
+                    )
+                    print(error)
+
+                    # Print available matching titles to make
+                    # future debugging easier.
+                    try:
+                        titles = page.locator(
+                            "title"
+                        ).all_text_contents()
+
+                        possible = [
+                            title.strip()
+                            for title in titles
+                            if any(
+                                word in title
+                                for word in (
+                                    "Easy",
+                                    "Medium",
+                                    "Hard",
+                                )
+                            )
+                        ]
+
+                        if possible:
+                            print(
+                                "Relevant <title> elements "
+                                "currently on page:"
+                            )
+
+                            for title in possible:
+                                print(f"  {title}")
+
+                    except Exception:
+                        pass
+
+                    if attempt < max_attempts:
+                        print(
+                            "Waiting 5 seconds before retry..."
+                        )
+
+                        page.wait_for_timeout(5000)
+
             raise RuntimeError(
-                f"Could not find {label} in Deep-ML page."
+                "Deep-ML stats could not be loaded "
+                "after multiple attempts."
             )
 
-        for line in lines[label_index + 1 : label_index + 10]:
-            cleaned = line.replace(",", "").strip()
+        finally:
+            browser.close()
 
-            if re.fullmatch(r"\d+", cleaned):
-                return int(cleaned)
 
-        raise RuntimeError(
-            f"Could not find count for {label}."
-        )
-
-    easy = find_count("Easy")
-    medium = find_count("Medium")
-    hard = find_count("Hard")
-
-    print(
-        f"Found stats: Easy={easy}, "
-        f"Medium={medium}, Hard={hard}"
-    )
-
-    return easy, medium, hard
+# ============================================================
+# Logo
+# ============================================================
 
 def encode_logo():
+    """
+    Embed the Deep-ML logo directly into the SVG as base64.
+
+    This is more reliable on GitHub than referencing a relative
+    PNG path from inside an SVG.
+    """
+
     if not LOGO_PATH.exists():
+        print(
+            f"Warning: {LOGO_PATH} not found. "
+            "Generating card without logo."
+        )
         return ""
 
     encoded = base64.b64encode(
         LOGO_PATH.read_bytes()
     ).decode("utf-8")
 
-    return f"data:image/png;base64,{encoded}"
+    return (
+        "data:image/png;base64,"
+        + encoded
+    )
 
 
-def make_ring_segments(easy, medium, hard):
-    total = easy + medium + hard
+# ============================================================
+# Circular chart
+# ============================================================
+
+def make_ring_segments(
+    easy,
+    medium,
+    hard,
+):
+    total = (
+        easy
+        + medium
+        + hard
+    )
 
     if total == 0:
         return ""
 
     radius = 43
-    circumference = 2 * math.pi * radius
+    circumference = (
+        2
+        * math.pi
+        * radius
+    )
 
     values = [
-        (easy, "#22c55e"),
-        (medium, "#f4b400"),
-        (hard, "#ef4444"),
+        (
+            easy,
+            "#22c55e",
+        ),
+        (
+            medium,
+            "#f4b400",
+        ),
+        (
+            hard,
+            "#ef4444",
+        ),
     ]
 
-    svg = []
-    offset = 0
+    segments = []
+    offset = 0.0
 
     for value, color in values:
-        if value == 0:
+        if value <= 0:
             continue
 
-        length = circumference * value / total
+        length = (
+            circumference
+            * value
+            / total
+        )
 
-        svg.append(
+        remaining = (
+            circumference
+            - length
+        )
+
+        segments.append(
             f"""
-            <circle
-                cx="100"
-                cy="112"
-                r="{radius}"
-                fill="none"
-                stroke="{color}"
-                stroke-width="7"
-                stroke-linecap="round"
-                stroke-dasharray="{length:.2f} {circumference - length:.2f}"
-                stroke-dashoffset="{-offset:.2f}"
-                transform="rotate(-90 100 112)"
-            />
-            """
+    <circle
+        cx="100"
+        cy="112"
+        r="{radius}"
+        fill="none"
+        stroke="{color}"
+        stroke-width="7"
+        stroke-linecap="round"
+        stroke-dasharray="{length:.2f} {remaining:.2f}"
+        stroke-dashoffset="{-offset:.2f}"
+        transform="rotate(-90 100 112)"
+    />
+            """.strip()
         )
 
         offset += length
 
-    return "\n".join(svg)
+    return "\n".join(
+        segments
+    )
 
 
-def make_svg(easy, medium, hard):
-    total = easy + medium + hard
+# ============================================================
+# SVG generation
+# ============================================================
 
-    logo = encode_logo()
+def make_svg(
+    easy,
+    medium,
+    hard,
+):
+    total = (
+        easy
+        + medium
+        + hard
+    )
 
+    # Difficulty percentages among solved problems.
     if total > 0:
-        easy_pct = easy / total
-        medium_pct = medium / total
-        hard_pct = hard / total
+        easy_pct = (
+            easy
+            / total
+        )
+
+        medium_pct = (
+            medium
+            / total
+        )
+
+        hard_pct = (
+            hard
+            / total
+        )
+
     else:
-        easy_pct = medium_pct = hard_pct = 0
+        easy_pct = 0
+        medium_pct = 0
+        hard_pct = 0
 
     bar_width = 250
 
-    easy_width = bar_width * easy_pct
-    medium_width = bar_width * medium_pct
-    hard_width = bar_width * hard_pct
-
-    ring_segments = make_ring_segments(
-        easy,
-        medium,
-        hard,
+    easy_width = (
+        bar_width
+        * easy_pct
     )
 
-    logo_svg = ""
+    medium_width = (
+        bar_width
+        * medium_pct
+    )
 
-    if logo:
+    hard_width = (
+        bar_width
+        * hard_pct
+    )
+
+    ring_segments = (
+        make_ring_segments(
+            easy,
+            medium,
+            hard,
+        )
+    )
+
+    logo_data = encode_logo()
+
+    if logo_data:
         logo_svg = f"""
-        <image
-            href="{logo}"
-            x="27"
-            y="20"
-            width="36"
-            height="36"
-            preserveAspectRatio="xMidYMid meet"
-        />
+    <image
+        href="{logo_data}"
+        x="27"
+        y="18"
+        width="38"
+        height="38"
+        preserveAspectRatio="xMidYMid meet"
+    />
         """
+    else:
+        logo_svg = ""
 
-    return f"""
+    svg = f"""
 <svg
     xmlns="http://www.w3.org/2000/svg"
     width="500"
@@ -223,6 +422,8 @@ def make_svg(easy, medium, hard):
     role="img"
     aria-label="Deep-ML Stats"
 >
+
+    <!-- Background -->
 
     <rect
         x="0.5"
@@ -234,11 +435,15 @@ def make_svg(easy, medium, hard):
         stroke="#d0d7de"
     />
 
+    <!-- Deep-ML Logo -->
+
     {logo_svg}
+
+    <!-- Title -->
 
     <text
         x="74"
-        y="44"
+        y="43"
         font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
         font-size="21"
         font-weight="600"
@@ -246,6 +451,8 @@ def make_svg(easy, medium, hard):
     >
         Deep-ML
     </text>
+
+    <!-- Total solved -->
 
     <text
         x="455"
@@ -259,6 +466,8 @@ def make_svg(easy, medium, hard):
         {total} solved
     </text>
 
+    <!-- Circle background -->
+
     <circle
         cx="100"
         cy="112"
@@ -268,7 +477,11 @@ def make_svg(easy, medium, hard):
         stroke-width="7"
     />
 
+    <!-- Circle difficulty distribution -->
+
     {ring_segments}
+
+    <!-- Number inside circle -->
 
     <text
         x="100"
@@ -293,9 +506,17 @@ def make_svg(easy, medium, hard):
         Solved
     </text>
 
-    <!-- EASY -->
 
-    <circle cx="185" cy="77" r="5" fill="#22c55e"/>
+    <!-- ================================================= -->
+    <!-- EASY -->
+    <!-- ================================================= -->
+
+    <circle
+        cx="185"
+        cy="77"
+        r="5"
+        fill="#22c55e"
+    />
 
     <text
         x="200"
@@ -333,16 +554,24 @@ def make_svg(easy, medium, hard):
     <line
         x1="200"
         y1="91"
-        x2="{200 + easy_width}"
+        x2="{200 + easy_width:.2f}"
         y2="91"
         stroke="#22c55e"
         stroke-width="5"
         stroke-linecap="round"
     />
 
-    <!-- MEDIUM -->
 
-    <circle cx="185" cy="112" r="5" fill="#f4b400"/>
+    <!-- ================================================= -->
+    <!-- MEDIUM -->
+    <!-- ================================================= -->
+
+    <circle
+        cx="185"
+        cy="112"
+        r="5"
+        fill="#f4b400"
+    />
 
     <text
         x="200"
@@ -380,16 +609,24 @@ def make_svg(easy, medium, hard):
     <line
         x1="200"
         y1="126"
-        x2="{200 + medium_width}"
+        x2="{200 + medium_width:.2f}"
         y2="126"
         stroke="#f4b400"
         stroke-width="5"
         stroke-linecap="round"
     />
 
-    <!-- HARD -->
 
-    <circle cx="185" cy="147" r="5" fill="#ef4444"/>
+    <!-- ================================================= -->
+    <!-- HARD -->
+    <!-- ================================================= -->
+
+    <circle
+        cx="185"
+        cy="147"
+        r="5"
+        fill="#ef4444"
+    />
 
     <text
         x="200"
@@ -427,7 +664,7 @@ def make_svg(easy, medium, hard):
     <line
         x1="200"
         y1="161"
-        x2="{200 + hard_width}"
+        x2="{200 + hard_width:.2f}"
         y2="161"
         stroke="#ef4444"
         stroke-width="5"
@@ -437,15 +674,38 @@ def make_svg(easy, medium, hard):
 </svg>
 """.strip()
 
+    return svg
+
+
+# ============================================================
+# Main
+# ============================================================
 
 def main():
-    easy, medium, hard = get_deepml_stats()
+    print(
+        "Fetching Deep-ML statistics..."
+    )
+
+    easy, medium, hard = (
+        get_deepml_stats()
+    )
+
+    total = (
+        easy
+        + medium
+        + hard
+    )
+
+    print()
+    print(
+        "Generating SVG card..."
+    )
 
     print(
-        f"Deep-ML stats: "
         f"Easy={easy}, "
         f"Medium={medium}, "
-        f"Hard={hard}"
+        f"Hard={hard}, "
+        f"Total={total}"
     )
 
     svg = make_svg(
@@ -464,8 +724,10 @@ def main():
         encoding="utf-8",
     )
 
+    print()
     print(
-        f"Updated {OUTPUT_PATH}"
+        f"Successfully updated "
+        f"{OUTPUT_PATH}"
     )
 
 
