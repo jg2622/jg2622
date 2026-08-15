@@ -7,6 +7,8 @@
     aria-label="Deep-ML Stats"
 >
 
+    <!-- Background -->
+
     <rect
         x="0.5"
         y="0.5"
@@ -17,11 +19,15 @@
         stroke="#d0d7de"
     />
 
+    <!-- Deep-ML Logo -->
+
     
+
+    <!-- Title -->
 
     <text
         x="74"
-        y="44"
+        y="43"
         font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif"
         font-size="21"
         font-weight="600"
@@ -29,6 +35,8 @@
     >
         Deep-ML
     </text>
+
+    <!-- Total solved -->
 
     <text
         x="455"
@@ -39,8 +47,10 @@
         font-weight="600"
         fill="#24292f"
     >
-        4 solved
+        5 solved
     </text>
+
+    <!-- Circle background -->
 
     <circle
         cx="100"
@@ -51,34 +61,34 @@
         stroke-width="7"
     />
 
-    
-            <circle
-                cx="100"
-                cy="112"
-                r="43"
-                fill="none"
-                stroke="#22c55e"
-                stroke-width="7"
-                stroke-linecap="round"
-                stroke-dasharray="202.63 67.54"
-                stroke-dashoffset="0.00"
-                transform="rotate(-90 100 112)"
-            />
-            
+    <!-- Circle difficulty distribution -->
 
-            <circle
-                cx="100"
-                cy="112"
-                r="43"
-                fill="none"
-                stroke="#f4b400"
-                stroke-width="7"
-                stroke-linecap="round"
-                stroke-dasharray="67.54 202.63"
-                stroke-dashoffset="-202.63"
-                transform="rotate(-90 100 112)"
-            />
-            
+    <circle
+        cx="100"
+        cy="112"
+        r="43"
+        fill="none"
+        stroke="#22c55e"
+        stroke-width="7"
+        stroke-linecap="round"
+        stroke-dasharray="216.14 54.04"
+        stroke-dashoffset="-0.00"
+        transform="rotate(-90 100 112)"
+    />
+<circle
+        cx="100"
+        cy="112"
+        r="43"
+        fill="none"
+        stroke="#f4b400"
+        stroke-width="7"
+        stroke-linecap="round"
+        stroke-dasharray="54.04 216.14"
+        stroke-dashoffset="-216.14"
+        transform="rotate(-90 100 112)"
+    />
+
+    <!-- Number inside circle -->
 
     <text
         x="100"
@@ -89,7 +99,7 @@
         font-weight="600"
         fill="#24292f"
     >
-        4
+        5
     </text>
 
     <text
@@ -103,9 +113,17 @@
         Solved
     </text>
 
-    <!-- EASY -->
 
-    <circle cx="185" cy="77" r="5" fill="#22c55e"/>
+    <!-- ================================================= -->
+    <!-- EASY -->
+    <!-- ================================================= -->
+
+    <circle
+        cx="185"
+        cy="77"
+        r="5"
+        fill="#22c55e"
+    />
 
     <text
         x="200"
@@ -127,7 +145,7 @@
         font-weight="600"
         fill="#57606a"
     >
-        3
+        4
     </text>
 
     <line
@@ -143,16 +161,24 @@
     <line
         x1="200"
         y1="91"
-        x2="387.5"
+        x2="400.00"
         y2="91"
         stroke="#22c55e"
         stroke-width="5"
         stroke-linecap="round"
     />
 
-    <!-- MEDIUM -->
 
-    <circle cx="185" cy="112" r="5" fill="#f4b400"/>
+    <!-- ================================================= -->
+    <!-- MEDIUM -->
+    <!-- ================================================= -->
+
+    <circle
+        cx="185"
+        cy="112"
+        r="5"
+        fill="#f4b400"
+    />
 
     <text
         x="200"
@@ -190,16 +216,24 @@
     <line
         x1="200"
         y1="126"
-        x2="262.5"
+        x2="250.00"
         y2="126"
         stroke="#f4b400"
         stroke-width="5"
         stroke-linecap="round"
     />
 
-    <!-- HARD -->
 
-    <circle cx="185" cy="147" r="5" fill="#ef4444"/>
+    <!-- ================================================= -->
+    <!-- HARD -->
+    <!-- ================================================= -->
+
+    <circle
+        cx="185"
+        cy="147"
+        r="5"
+        fill="#ef4444"
+    />
 
     <text
         x="200"
@@ -237,7 +271,7 @@
     <line
         x1="200"
         y1="161"
-        x2="200.0"
+        x2="200.00"
         y2="161"
         stroke="#ef4444"
         stroke-width="5"
