@@ -47,7 +47,7 @@
         font-weight="600"
         fill="#24292f"
     >
-        6 solved
+        7 solved
     </text>
 
     <!-- Circle background -->
@@ -71,7 +71,7 @@
         stroke="#22c55e"
         stroke-width="7"
         stroke-linecap="round"
-        stroke-dasharray="180.12 90.06"
+        stroke-dasharray="154.39 115.79"
         stroke-dashoffset="-0.00"
         transform="rotate(-90 100 112)"
     />
@@ -83,8 +83,8 @@
         stroke="#f4b400"
         stroke-width="7"
         stroke-linecap="round"
-        stroke-dasharray="90.06 180.12"
-        stroke-dashoffset="-180.12"
+        stroke-dasharray="115.79 154.39"
+        stroke-dashoffset="-154.39"
         transform="rotate(-90 100 112)"
     />
 
@@ -99,7 +99,7 @@
         font-weight="600"
         fill="#24292f"
     >
-        6
+        7
     </text>
 
     <text
@@ -161,7 +161,7 @@
     <line
         x1="200"
         y1="91"
-        x2="366.67"
+        x2="342.86"
         y2="91"
         stroke="#22c55e"
         stroke-width="5"
@@ -200,7 +200,7 @@
         font-weight="600"
         fill="#57606a"
     >
-        2
+        3
     </text>
 
     <line
@@ -216,7 +216,7 @@
     <line
         x1="200"
         y1="126"
-        x2="283.33"
+        x2="307.14"
         y2="126"
         stroke="#f4b400"
         stroke-width="5"
